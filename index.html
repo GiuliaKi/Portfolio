@@ -17,12 +17,12 @@
             object-fit: cover;
         }
         /* Stile per il background del corpo */
-    body {
-        background-image: url('sfondo1.jpg');
-        background-size: cover;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
-    }
+        body {
+            background-image: url('sfondo1.jpg');
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }
     </style>
 </head>
 <body>
@@ -36,14 +36,17 @@
 
 <div class="container mt-5">
     <div class="text-center">
-        <div style="width: 550px; height: 320px; background-color: white; padding: 10px; border-radius: 15px; margin: 0 auto; text-align: center;">
-        <img src="immagine profilo standard.png" alt="Foto di Giulia Cappai" class="profile-picture">
-        <h1 class="mt-3">Giulia Cappai</h1>
-        <p>Benvenuti sul mio sito vetrina! <br>
-        Sono Giulia, mi interessa il mondo digitale. <br>
-        </p>
-
-        </div>  
+        <div class="row">
+            <div class="col-md-6">
+                <img src="immagine profilo standard.png" alt="Foto di Giulia Cappai" class="profile-picture">
+            </div>
+            <div class="col-md-6">
+                <h1 class="mt-3">Giulia Cappai</h1>
+                <p>Benvenuti sul mio sito vetrina! <br>
+                Sono Giulia, mi interessa il mondo digitale. <br>
+                </p>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -53,4 +56,3 @@
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </body>
 </html>
-
