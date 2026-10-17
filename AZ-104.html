@@ -1,15 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="it">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AZ-104</title>
+    <title>AZ-104 - Simulazione d'esame</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <style>
-        body {
-            background-color: #ffffff;
-        }
-    </style>
+    <link rel="stylesheet" href="az104/exam.css">
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-info bg-dark">
@@ -19,8 +15,113 @@
         <a class="navbar-brand ml-auto" href="https://giuliaki.github.io/Portfolio/ContattiB.html" style="color: #008080;">Contatti</a>
     </nav>
 
-    <div class="container mt-5">
-        <p>hello world</p>
-    </div>
+    <main class="container my-4">
+
+        <!-- Home: regole, avvio, storico -->
+        <section id="view-home">
+            <h1 class="az-title">AZ-104 &middot; Simulazione d'esame</h1>
+            <p class="lead">Microsoft Azure Administrator &mdash; aula d'esame con domande dai practice test.</p>
+
+            <div id="resume-box" class="az-card az-warning" hidden>
+                <p class="mb-2"><b>Hai un test in corso.</b> <span id="resume-info"></span></p>
+                <button id="btn-resume" class="btn btn-az">Riprendi il test</button>
+                <button id="btn-discard" class="btn btn-outline-secondary ml-2">Abbandona</button>
+            </div>
+
+            <div class="az-card">
+                <h2 class="h5">Regole</h2>
+                <ul class="mb-3">
+                    <li><b>60 domande</b> scelte a caso a ogni nuovo test, una alla volta.</li>
+                    <li><b>120 minuti</b>: allo scadere il test termina automaticamente.</li>
+                    <li>Le domande con lo <b>stesso scenario</b> (serie e case study) restano insieme e nell'ordine originale. Al massimo un case study per test.</li>
+                    <li>Punteggio su <b>1000</b>: superamento a <b>700</b>. Le domande a scelta multipla valgono solo se tutte le scelte sono corrette.</li>
+                    <li>Puoi tornare indietro e segnare le domande da rivedere prima di consegnare.</li>
+                </ul>
+                <p class="text-muted small mb-3" id="bank-info"></p>
+                <button id="btn-start" class="btn btn-az btn-lg">Inizia test</button>
+            </div>
+
+            <div class="az-card">
+                <h2 class="h5">Storico dei test</h2>
+                <p id="history-empty" class="text-muted mb-0">Nessun test completato su questo browser.</p>
+                <div id="history-trend-wrap" class="chart-wrap mb-3" hidden><canvas id="history-trend"></canvas></div>
+                <div class="table-responsive">
+                    <table id="history-table" class="table table-hover table-sm mb-0" hidden>
+                        <thead><tr><th>Data e ora</th><th>Punteggio</th><th>Corrette</th><th>Sbagliate</th><th>Durata</th><th>Esito</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <p class="text-muted small mt-2 mb-0">Lo storico è salvato nel browser (localStorage): resta su questo dispositivo.</p>
+            </div>
+        </section>
+
+        <!-- Esame -->
+        <section id="view-exam" hidden>
+            <div class="exam-bar">
+                <span id="exam-progress" class="font-weight-bold"></span>
+                <span id="exam-timer" class="exam-timer" title="Tempo rimanente"></span>
+            </div>
+
+            <div class="az-card">
+                <div id="exam-group" class="exam-group" hidden></div>
+                <div id="exam-stem" class="exam-stem"></div>
+                <div id="exam-hint" class="exam-hint" hidden></div>
+                <div id="exam-options" class="exam-options"></div>
+            </div>
+
+            <div class="exam-actions">
+                <button id="btn-prev" class="btn btn-outline-secondary">&larr; Precedente</button>
+                <button id="btn-flag" class="btn btn-outline-warning">Segna per revisione</button>
+                <button id="btn-next" class="btn btn-az">Successiva &rarr;</button>
+            </div>
+
+            <div class="az-card">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="small text-muted">
+                        <span class="legend legend-answered"></span> risposta data
+                        <span class="legend legend-flagged ml-2"></span> da rivedere
+                    </span>
+                    <button id="btn-finish" class="btn btn-sm btn-outline-danger">Termina test</button>
+                </div>
+                <div id="exam-nav" class="exam-nav"></div>
+            </div>
+        </section>
+
+        <!-- Risultati del test appena svolto -->
+        <section id="view-results" hidden>
+            <h1 class="az-title">Risultati</h1>
+            <div id="results-timeup" class="az-card az-warning" hidden>Tempo scaduto: il test è stato consegnato automaticamente.</div>
+            <div id="results-summary"></div>
+            <div class="az-card">
+                <h2 class="h5">Risultati per area d'esame</h2>
+                <div class="chart-wrap"><canvas id="results-chart"></canvas></div>
+                <div id="results-domains"></div>
+            </div>
+            <div class="results-actions">
+                <button id="btn-pdf" class="btn btn-az">Scarica PDF del riepilogo</button>
+                <button id="btn-new" class="btn btn-outline-secondary">Torna all'inizio</button>
+                <label class="ml-auto mb-0"><input type="checkbox" id="only-wrong"> Mostra solo errori e senza risposta</label>
+            </div>
+            <div id="results-review"></div>
+        </section>
+
+        <!-- Dettaglio di un test dello storico -->
+        <section id="view-history-detail" hidden>
+            <button id="btn-back-home" class="btn btn-link pl-0">&larr; Torna allo storico</button>
+            <h1 class="az-title" id="detail-title"></h1>
+            <div id="detail-summary"></div>
+            <div class="az-card">
+                <h2 class="h5">Risultati per area d'esame</h2>
+                <div class="chart-wrap"><canvas id="detail-chart"></canvas></div>
+                <div id="detail-domains"></div>
+            </div>
+            <button id="btn-delete-entry" class="btn btn-sm btn-outline-danger">Elimina questo risultato</button>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+    <script src="az104/data/questions.js"></script>
+    <script src="az104/exam.js"></script>
 </body>
 </html>

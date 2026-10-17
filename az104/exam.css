@@ -1,0 +1,276 @@
+body {
+    background-color: #ffffff;
+}
+
+.az-title {
+    color: #006666;
+    font-size: 1.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.az-card {
+    background: #ffffff;
+    border: 1px solid #d9e6e6;
+    border-radius: 12px;
+    padding: 1.1rem 1.25rem;
+    margin: 1rem 0;
+}
+
+.az-warning {
+    background: #fff8e6;
+    border-color: #f0d080;
+}
+
+.btn-az {
+    background-color: #008080;
+    border-color: #008080;
+    color: #ffffff;
+}
+
+.btn-az:hover,
+.btn-az:focus {
+    background-color: #006666;
+    border-color: #006666;
+    color: #ffffff;
+}
+
+/* Barra esame */
+.exam-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f2f8f8;
+    border: 1px solid #d9e6e6;
+    border-radius: 12px;
+    padding: 0.6rem 1rem;
+}
+
+.exam-timer {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 1.35rem;
+    font-weight: bold;
+    color: #006666;
+}
+
+.exam-timer.low {
+    color: #c0392b;
+}
+
+.exam-group {
+    display: inline-block;
+    background: #e6f2f2;
+    color: #005555;
+    border-radius: 6px;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+}
+
+.exam-stem p {
+    margin-bottom: 0.45rem;
+}
+
+.exam-stem pre,
+.review-stem pre {
+    background: #f6f8fa;
+    border: 1px solid #e1e4e8;
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.82rem;
+    white-space: pre-wrap;
+}
+
+.exhibit {
+    display: block;
+    max-width: min(100%, 820px);
+    height: auto;
+    border: 1px solid #e1e4e8;
+    border-radius: 6px;
+    margin: 0.5rem 0 0.75rem;
+}
+
+.exam-hint {
+    font-style: italic;
+    color: #555;
+    margin: 0.5rem 0;
+}
+
+.exam-options {
+    margin-top: 0.75rem;
+}
+
+.exam-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    border: 1px solid #d9e6e6;
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+}
+
+.exam-option:hover {
+    background: #f2f8f8;
+}
+
+.exam-option.selected {
+    border-color: #008080;
+    background: #e6f2f2;
+}
+
+.exam-option input {
+    margin-top: 0.3rem;
+}
+
+.exam-actions,
+.results-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.exam-nav {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(2.4rem, 1fr));
+    gap: 0.35rem;
+}
+
+.exam-nav button {
+    border: 1px solid #c8d6d6;
+    background: #ffffff;
+    border-radius: 6px;
+    padding: 0.25rem 0;
+    font-size: 0.85rem;
+}
+
+.exam-nav button.answered {
+    background: #cce6e6;
+}
+
+.exam-nav button.flagged {
+    box-shadow: inset 0 -4px 0 #f0ad4e;
+}
+
+.exam-nav button.current {
+    outline: 2px solid #006666;
+    font-weight: bold;
+}
+
+.legend {
+    display: inline-block;
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 3px;
+    vertical-align: middle;
+    border: 1px solid #c8d6d6;
+}
+
+.legend-answered {
+    background: #cce6e6;
+}
+
+.legend-flagged {
+    box-shadow: inset 0 -4px 0 #f0ad4e;
+}
+
+/* Risultati */
+.score-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+}
+
+.score-box {
+    border: 1px solid #d9e6e6;
+    border-radius: 10px;
+    padding: 0.75rem;
+    text-align: center;
+}
+
+.score-box .value {
+    font-size: 1.6rem;
+    font-weight: bold;
+}
+
+.score-box .label {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.pass {
+    color: #1e8449;
+}
+
+.fail {
+    color: #c0392b;
+}
+
+.chart-wrap {
+    position: relative;
+    height: 260px;
+}
+
+.domain-table td,
+.domain-table th {
+    padding: 0.3rem 0.5rem;
+}
+
+.review-item {
+    border-left: 5px solid #c0392b;
+}
+
+.review-item.ok {
+    border-left-color: #1e8449;
+}
+
+.review-item.skipped {
+    border-left-color: #999;
+}
+
+.review-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.review-options li {
+    margin-bottom: 0.25rem;
+}
+
+.review-options .is-correct {
+    color: #1e8449;
+    font-weight: bold;
+}
+
+.review-options .is-wrong-choice {
+    color: #c0392b;
+    text-decoration: line-through;
+}
+
+.review-expl {
+    background: #f7fbfb;
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+    margin-top: 0.6rem;
+}
+
+.review-expl p {
+    margin-bottom: 0.35rem;
+}
+
+.review-refs {
+    font-size: 0.85rem;
+    word-break: break-all;
+}
+
+#history-table tbody tr {
+    cursor: pointer;
+}
