@@ -1,11 +1,15 @@
 (function () {
     "use strict";
 
-    const EXAM_SIZE = 60;
-    const EXAM_MINUTES = 120;
+    const FULL_MODE = { type: "full", size: 60, minutes: 120 };
+    const DOMAIN_FORMATS = {
+        short: { size: 30, minutes: 50 },
+        long: { size: 60, minutes: 100 },
+    };
     const PASS_SCORE = 700;
     const CASE_STUDY_MIN_SIZE = 8;
     const HISTORY_KEY = "az104.history.v1";
+    const DOMAIN_HISTORY_KEY = "az104.history.domain.v1";
     const CURRENT_KEY = "az104.current.v1";
 
     const DOMAINS = {
@@ -24,6 +28,7 @@
     let timerHandle = null;
     let lastResult = null;
     let detailEntryId = null;
+    let detailEntryKey = HISTORY_KEY;
     const charts = {};
 
     const $ = (id) => document.getElementById(id);
@@ -118,12 +123,34 @@
         }
     }
 
+    // Test e risultati salvati prima dell'introduzione delle modalità non hanno "mode".
+    function modeOf(obj) {
+        return (obj && obj.mode) || FULL_MODE;
+    }
+
+    function historyKeyFor(mode) {
+        return mode.type === "domain" ? DOMAIN_HISTORY_KEY : HISTORY_KEY;
+    }
+
+    function modeLabel(mode) {
+        return mode.type === "domain"
+            ? `Test per argomento: ${DOMAINS[mode.domain]} (${mode.size} domande, ${mode.minutes} min)`
+            : "Esame completo";
+    }
+
+    function domainPoolSize(domain) {
+        return bank.questions.filter((q) => q.domain === domain).length;
+    }
+
     // ---------- costruzione del test ----------
 
-    function buildQuestionList() {
+    function buildQuestionList(mode) {
+        const pool = mode.type === "domain"
+            ? bank.questions.filter((q) => q.domain === mode.domain)
+            : bank.questions;
         const units = [];
         const unitIndex = new Map();
-        for (const q of bank.questions) {
+        for (const q of pool) {
             if (!unitIndex.has(q.group)) {
                 unitIndex.set(q.group, units.length);
                 units.push([]);
@@ -137,13 +164,15 @@
             return unit.length >= CASE_STUDY_MIN_SIZE || /case study/i.test(first);
         };
 
+        // Nei test per argomento il limite di un case study ridurrebbe troppo le domande disponibili.
+        const limitCaseStudies = mode.type === "full";
         const picked = [];
         let count = 0;
         let hasCaseStudy = false;
         for (const unit of units) {
-            if (count === EXAM_SIZE) break;
-            if (count + unit.length > EXAM_SIZE) continue;
-            if (isCaseStudy(unit)) {
+            if (count === mode.size) break;
+            if (count + unit.length > mode.size) continue;
+            if (limitCaseStudies && isCaseStudy(unit)) {
                 if (hasCaseStudy) continue;
                 hasCaseStudy = true;
             }
@@ -153,15 +182,16 @@
         return picked.flat();
     }
 
-    function startExam() {
+    function startExam(mode) {
         const now = Date.now();
         exam = {
-            ids: buildQuestionList(),
+            mode,
+            ids: buildQuestionList(mode),
             answers: {},
             flagged: {},
             current: 0,
             startedAt: new Date(now).toISOString(),
-            endsAt: now + EXAM_MINUTES * 60 * 1000,
+            endsAt: now + mode.minutes * 60 * 1000,
         };
         persistExam();
         openExam();
@@ -201,7 +231,9 @@
         const q = byId.get(exam.ids[i]);
         const chosen = exam.answers[q.id] || [];
 
-        $("exam-progress").textContent = `Domanda ${i + 1} di ${exam.ids.length}`;
+        const mode = modeOf(exam);
+        $("exam-progress").textContent = `Domanda ${i + 1} di ${exam.ids.length}` +
+            (mode.type === "domain" ? ` \u00b7 ${DOMAINS[mode.domain]}` : "");
 
         const g = groupInfo(i);
         $("exam-group").hidden = !g;
@@ -316,8 +348,10 @@
         clearInterval(timerHandle);
         const finishedAt = Math.min(Date.now(), exam.endsAt);
         const g = grade(exam);
+        const mode = modeOf(exam);
         const entry = {
             id: exam.startedAt,
+            mode,
             startedAt: exam.startedAt,
             finishedAt: new Date(finishedAt).toISOString(),
             durationSec: Math.round((finishedAt - Date.parse(exam.startedAt)) / 1000),
@@ -330,9 +364,10 @@
             timeUp,
             byDomain: g.byDomain,
         };
-        const history = loadJson(HISTORY_KEY, []).filter((h) => h.id !== entry.id);
+        const key = historyKeyFor(mode);
+        const history = loadJson(key, []).filter((h) => h.id !== entry.id);
         history.push(entry);
-        saveJson(HISTORY_KEY, history);
+        saveJson(key, history);
         localStorage.removeItem(CURRENT_KEY);
 
         lastResult = { ...g, entry };
@@ -354,7 +389,7 @@
                     <div class="score-box"><div class="value">${entry.unanswered}</div><div class="label">Senza risposta</div></div>
                     <div class="score-box"><div class="value">${fmtDuration(entry.durationSec)}</div><div class="label">Tempo impiegato</div></div>
                 </div>
-                <p class="text-muted small mt-3 mb-0">Iniziato il ${fmtDate(entry.startedAt)} &middot; ${entry.correct}/${entry.total} corrette (${Math.round((entry.correct / entry.total) * 100)}%)</p>
+                <p class="text-muted small mt-3 mb-0">${esc(modeLabel(modeOf(entry)))} &middot; iniziato il ${fmtDate(entry.startedAt)} &middot; ${entry.correct}/${entry.total} corrette (${Math.round((entry.correct / entry.total) * 100)}%)</p>
             </div>`;
     }
 
@@ -420,6 +455,52 @@
         }).join("");
     }
 
+    function domainEntries(domain) {
+        return loadJson(DOMAIN_HISTORY_KEY, [])
+            .filter((h) => modeOf(h).domain === domain)
+            .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+    }
+
+    // Andamento del punteggio nel tempo; il test evidenziato (se presente) ha un punto più grande.
+    function drawTrend(canvasId, entriesAsc, highlightId) {
+        if (!window.Chart) return;
+        if (charts[canvasId]) charts[canvasId].destroy();
+        const label = (h) => {
+            const m = modeOf(h);
+            return m.type === "domain" ? `${fmtDate(h.startedAt)} (${m.size})` : fmtDate(h.startedAt);
+        };
+        charts[canvasId] = new Chart($(canvasId), {
+            type: "line",
+            data: {
+                labels: entriesAsc.map(label),
+                datasets: [
+                    {
+                        label: "Punteggio",
+                        data: entriesAsc.map((h) => h.score),
+                        borderColor: "#008080",
+                        backgroundColor: "#008080",
+                        pointRadius: entriesAsc.map((h) => (h.id === highlightId ? 7 : 3)),
+                        tension: 0.2,
+                    },
+                    { label: "Soglia 700", data: entriesAsc.map(() => PASS_SCORE), borderColor: "#e07a5f", borderDash: [6, 4], pointRadius: 0 },
+                ],
+            },
+            options: { maintainAspectRatio: false, scales: { y: { min: 0, max: 1000 } } },
+        });
+    }
+
+    // Esame completo: grafico per area. Test per argomento: andamento dei test dello stesso argomento.
+    function drawEntryChart(canvasId, titleId, entry, byDomain) {
+        const mode = modeOf(entry);
+        if (mode.type === "domain") {
+            $(titleId).textContent = `Andamento dei test: ${DOMAINS[mode.domain]}`;
+            drawTrend(canvasId, domainEntries(mode.domain), entry.id);
+        } else {
+            $(titleId).textContent = "Risultati per area d'esame";
+            drawDomainChart(canvasId, byDomain);
+        }
+    }
+
     function renderResults() {
         const r = lastResult;
         show("view-results");
@@ -428,10 +509,34 @@
         $("results-domains").innerHTML = domainTableHtml(r.byDomain);
         $("only-wrong").checked = false;
         $("results-review").innerHTML = reviewHtml(r.items, false);
-        drawDomainChart("results-chart", r.byDomain);
+        drawEntryChart("results-chart", "results-chart-title", r.entry, r.byDomain);
     }
 
-    // ---------- storico ----------
+    // ---------- home e storico ----------
+
+    function historyRow(h, withDomain) {
+        const m = modeOf(h);
+        const domainCells = withDomain ? `<td>${DOMAINS[m.domain] || ""}</td><td>${m.size} dom. / ${m.minutes} min</td>` : "";
+        return `
+            <tr data-id="${esc(h.id)}" data-kind="${m.type}">
+                <td>${fmtDate(h.startedAt)}</td>
+                ${domainCells}
+                <td class="${h.passed ? "pass" : "fail"} font-weight-bold">${h.score}</td>
+                <td>${h.correct}</td>
+                <td>${h.wrong + h.unanswered}</td>
+                <td>${fmtDuration(h.durationSec)}</td>
+                <td>${h.passed ? "Superato" : "Non superato"}${h.timeUp ? " (tempo scaduto)" : ""}</td>
+            </tr>`;
+    }
+
+    function updateFormatAvailability() {
+        const pool = domainPoolSize($("domain-select").value);
+        const long = $("format-long");
+        long.disabled = pool < DOMAIN_FORMATS.long.size;
+        if (long.disabled && long.checked) $("format-short").checked = true;
+        $("format-note").hidden = !long.disabled;
+        $("format-note").textContent = `Per questo argomento ci sono solo ${pool} domande: disponibile il formato da 30.`;
+    }
 
     function renderHome() {
         show("view-home");
@@ -443,51 +548,56 @@
         if (saved) {
             const answered = Object.keys(saved.answers).length;
             const left = saved.endsAt - Date.now();
-            $("resume-info").textContent = left > 0
+            $("resume-info").textContent = `${modeLabel(modeOf(saved))}: ` + (left > 0
                 ? `${answered}/${saved.ids.length} risposte date, tempo rimanente ${fmtClock(left)}.`
-                : "Il tempo è scaduto: riprendendo il test verrà consegnato.";
+                : "il tempo è scaduto, riprendendo il test verrà consegnato.");
         }
+
+        updateFormatAvailability();
 
         const history = loadJson(HISTORY_KEY, []).slice().sort((a, b) => b.startedAt.localeCompare(a.startedAt));
         $("history-empty").hidden = history.length > 0;
         $("history-table").hidden = history.length === 0;
-        $("history-table").querySelector("tbody").innerHTML = history.map((h) => `
-            <tr data-id="${esc(h.id)}">
-                <td>${fmtDate(h.startedAt)}</td>
-                <td class="${h.passed ? "pass" : "fail"} font-weight-bold">${h.score}</td>
-                <td>${h.correct}</td>
-                <td>${h.wrong + h.unanswered}</td>
-                <td>${fmtDuration(h.durationSec)}</td>
-                <td>${h.passed ? "Superato" : "Non superato"}${h.timeUp ? " (tempo scaduto)" : ""}</td>
-            </tr>`).join("");
-
+        $("history-table").querySelector("tbody").innerHTML = history.map((h) => historyRow(h, false)).join("");
         $("history-trend-wrap").hidden = history.length < 2;
-        if (history.length >= 2 && window.Chart) {
-            if (charts.trend) charts.trend.destroy();
-            const asc = history.slice().reverse();
-            charts.trend = new Chart($("history-trend"), {
-                type: "line",
-                data: {
-                    labels: asc.map((h) => fmtDate(h.startedAt)),
-                    datasets: [
-                        { label: "Punteggio", data: asc.map((h) => h.score), borderColor: "#008080", backgroundColor: "#008080", tension: 0.2 },
-                        { label: "Soglia 700", data: asc.map(() => PASS_SCORE), borderColor: "#e07a5f", borderDash: [6, 4], pointRadius: 0 },
-                    ],
-                },
-                options: { maintainAspectRatio: false, scales: { y: { min: 0, max: 1000 } } },
-            });
-        }
+        if (history.length >= 2) drawTrend("history-trend", history.slice().reverse(), null);
+
+        renderDomainHistory();
     }
 
-    function openHistoryDetail(id) {
-        const entry = loadJson(HISTORY_KEY, []).find((h) => h.id === id);
+    function renderDomainHistory() {
+        const filter = $("domain-history-filter").value;
+        const all = loadJson(DOMAIN_HISTORY_KEY, []);
+        const rows = all
+            .filter((h) => filter === "all" || modeOf(h).domain === filter)
+            .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+        $("domain-history-empty").hidden = rows.length > 0;
+        $("domain-history-empty").textContent = all.length
+            ? "Nessun test svolto per questo argomento."
+            : "Nessun test per argomento svolto su questo browser.";
+        $("domain-history-table").hidden = rows.length === 0;
+        $("domain-history-table").querySelector("tbody").innerHTML = rows.map((h) => historyRow(h, true)).join("");
+
+        $("domain-trend-hint").hidden = !(filter === "all" && all.length > 0);
+        const showTrend = filter !== "all" && rows.length >= 2;
+        $("domain-trend-wrap").hidden = !showTrend;
+        if (showTrend) drawTrend("domain-trend", rows.slice().reverse(), null);
+    }
+
+    function openHistoryDetail(id, kind) {
+        const key = kind === "domain" ? DOMAIN_HISTORY_KEY : HISTORY_KEY;
+        const entry = loadJson(key, []).find((h) => h.id === id);
         if (!entry) return;
         detailEntryId = id;
+        detailEntryKey = key;
         show("view-history-detail");
-        $("detail-title").textContent = `Test del ${fmtDate(entry.startedAt)}`;
+        const mode = modeOf(entry);
+        $("detail-title").textContent = mode.type === "domain"
+            ? `${DOMAINS[mode.domain]} \u00b7 test del ${fmtDate(entry.startedAt)}`
+            : `Esame completo del ${fmtDate(entry.startedAt)}`;
         $("detail-summary").innerHTML = summaryHtml(entry);
         $("detail-domains").innerHTML = domainTableHtml(entry.byDomain);
-        drawDomainChart("detail-chart", entry.byDomain);
+        drawEntryChart("detail-chart", "detail-chart-title", entry, entry.byDomain);
     }
 
     // ---------- PDF ----------
@@ -596,6 +706,7 @@
 
         const e = r.entry;
         write("AZ-104 - Simulazione d'esame", { size: 18, style: "bold", color: [0, 102, 102] });
+        write(modeLabel(modeOf(e)), { size: 11, style: "bold" });
         write(`Test del ${fmtDate(e.startedAt)} - durata ${fmtDuration(e.durationSec)}${e.timeUp ? " (tempo scaduto)" : ""}`, { size: 10, color: [90, 90, 90] });
         gap(3);
         write(`Punteggio: ${e.score}/1000 - ${e.passed ? "SUPERATO" : "NON SUPERATO"} (soglia ${PASS_SCORE})`, {
@@ -653,12 +764,29 @@
 
     // ---------- eventi ----------
 
+    function fillSelects() {
+        $("domain-select").innerHTML = DOMAIN_ORDER
+            .map((d) => `<option value="${d}">${DOMAINS[d]} (${domainPoolSize(d)} domande)</option>`)
+            .join("");
+        $("domain-history-filter").innerHTML = `<option value="all">Tutti gli argomenti</option>` +
+            DOMAIN_ORDER.map((d) => `<option value="${d}">${DOMAINS[d]}</option>`).join("");
+    }
+
+    function confirmAndStart(mode) {
+        if (loadJson(CURRENT_KEY, null) && !window.confirm("C'è un test in corso: verrà abbandonato. Iniziare un nuovo test?")) return;
+        localStorage.removeItem(CURRENT_KEY);
+        startExam(mode);
+    }
+
     function bind() {
-        $("btn-start").addEventListener("click", () => {
-            if (loadJson(CURRENT_KEY, null) && !window.confirm("C'è un test in corso: verrà abbandonato. Iniziare un nuovo test?")) return;
-            localStorage.removeItem(CURRENT_KEY);
-            startExam();
+        $("btn-start").addEventListener("click", () => confirmAndStart(FULL_MODE));
+        $("btn-start-domain").addEventListener("click", () => {
+            const domain = $("domain-select").value;
+            const format = document.querySelector("input[name='domain-format']:checked").value;
+            confirmAndStart({ type: "domain", domain, ...DOMAIN_FORMATS[format] });
         });
+        $("domain-select").addEventListener("change", updateFormatAvailability);
+        $("domain-history-filter").addEventListener("change", renderDomainHistory);
         $("btn-resume").addEventListener("click", () => {
             exam = loadJson(CURRENT_KEY, null);
             if (!exam) return renderHome();
@@ -695,18 +823,21 @@
             $("results-review").innerHTML = reviewHtml(lastResult.items, ev.target.checked);
         });
 
-        $("history-table").addEventListener("click", (ev) => {
-            const tr = ev.target.closest("tr[data-id]");
-            if (tr) openHistoryDetail(tr.dataset.id);
-        });
+        for (const tableId of ["history-table", "domain-history-table"]) {
+            $(tableId).addEventListener("click", (ev) => {
+                const tr = ev.target.closest("tr[data-id]");
+                if (tr) openHistoryDetail(tr.dataset.id, tr.dataset.kind);
+            });
+        }
         $("btn-back-home").addEventListener("click", renderHome);
         $("btn-delete-entry").addEventListener("click", () => {
             if (!window.confirm("Eliminare questo risultato dallo storico?")) return;
-            saveJson(HISTORY_KEY, loadJson(HISTORY_KEY, []).filter((h) => h.id !== detailEntryId));
+            saveJson(detailEntryKey, loadJson(detailEntryKey, []).filter((h) => h.id !== detailEntryId));
             renderHome();
         });
     }
 
+    fillSelects();
     bind();
     renderHome();
 })();
